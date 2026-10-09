@@ -1,0 +1,24 @@
+[package]
+name = "tmp-egui"
+version = "0.1.0"
+description = "TaskManager+ Lite's egui UI, running on tmp-model"
+edition = "2021"  # lite's edition; the code is lite's own
+publish = false
+
+# Its own workspace: egui's dependency graph stays out of the root lab workspace.
+[workspace]
+
+[features]
+default = ["accesskit"]
+# Screen reader support: exposes the UI to Narrator, NVDA and Accessibility
+# Insights through Windows UI Automation. Build with --no-default-features to
+# measure the cost of having it.
+accesskit = ["eframe/accesskit"]
+
+[dependencies]
+tmp-model = { path = "../../crates/tmp-model" }
+# glow (OpenGL), the same renderer as the installed lite, so the upgrade is
+# the only variable. eframe's default is wgpu now.
+eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts"] }
+egui_extras = { version = "0.36", default-features = false }
+egui_plot = "0.37"

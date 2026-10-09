@@ -79,6 +79,7 @@ pub struct Snapshot {
 
     // GPU
     pub gpu_usage_percent: f64,
+    pub gpu_usage_3d_percent: f64,
     pub gpu_usage_compute_percent: f64,
     pub gpu_name: String,
     pub gpu_is_integrated: bool,

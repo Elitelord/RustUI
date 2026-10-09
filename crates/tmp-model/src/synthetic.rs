@@ -339,6 +339,7 @@ impl Synthetic {
             net_link_speed_bps: 2.4e9,
 
             gpu_usage_percent: gpu,
+            gpu_usage_3d_percent: gpu * rng.range(0.6, 0.9),
             gpu_usage_compute_percent: gpu * 0.1 * rng.unit(),
             gpu_name: GPU_NAME.into(),
             gpu_is_integrated: true,

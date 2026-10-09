@@ -1,0 +1,137 @@
+Window "TaskManager+ Lite (egui lab)"
+  ScrollBar ""
+  Text "548 MB"
+  Text "0.2%"
+  Text "(6)"
+  Text "Docker Desktop"
+  Custom "" [focusable]
+  Text "57 MB"
+  Text "0.2%"
+  Text "(8)"
+  Text "Runtime Broker"
+  Custom "" [focusable]
+  Text "241 MB"
+  Text "0.2%"
+  Text "Antimalware Service Executable"
+  Text "0.5%"
+  Text "235 MB"
+  Text "0.2%"
+  Text "(9)"
+  Text "Microsoft Edge WebView2"
+  Custom "" [focusable]
+  Text "119.8 KB/s"
+  Text "0.3%"
+  Text "1.03 GB"
+  Text "0.2%"
+  Text "(6)"
+  Text "Discord"
+  Custom "" [focusable]
+  (none) ""
+  (none) ""
+  Text "1.47 GB"
+  Text "0.2%"
+  (none) ""
+  (none) ""
+  Text "rust-analyzer"
+  Text "225.8 KB/s"
+  Text "312 MB"
+  Text "0.3%"
+  Text "(3)"
+  Text "Contoso Sync"
+  Custom "" [focusable]
+  (none) ""
+  Text "468 MB"
+  Text "0.3%"
+  Custom "" [focusable]
+  Text "654 MB"
+  Text "0.3%"
+  Text "(5)"
+  Text "Spotify"
+  Custom "" [focusable]
+  (none) ""
+  Text "0 MB"
+  Text "0.3%"
+  (none) ""
+  (none) ""
+  Text "System"
+  (none) ""
+  (none) ""
+  Text "43 MB"
+  Text "0.4%"
+  (none) ""
+  (none) ""
+  Text "TaskManager+ Lite"
+  Text "172 MB"
+  Text "0.4%"
+  Text "Windows Explorer"
+  Text "309 MB"
+  Text "0.4%"
+  Text "Zed"
+  Text "133 MB"
+  Text "0.4%"
+  Text "Desktop Window Manager"
+  Text "1.39 GB"
+  Text "0.4%"
+  Custom "" [focusable]
+  Text "12 MB"
+  Text "0.4%"
+  (none) ""
+  (none) ""
+  Text "Windows Audio Device Graph Isolation"
+  Text "1022 MB"
+  Text "0.6%"
+  Custom "" [focusable]
+  (none) ""
+  Text "2.05 GB"
+  Text "0.6%"
+  (none) ""
+  (none) ""
+  Text "Vmmem"
+  (none) ""
+  Text "41 MB"
+  Text "0.6%"
+  Custom "" [focusable]
+  Text "1.58 GB"
+  Text "1.0%"
+  Custom "" [focusable]
+  Text "599 MB"
+  Text "1.8%"
+  Text "(6)"
+  Text "Steam"
+  Custom "" [focusable]
+  Text "1.6%"
+  Text "2.64 GB"
+  Text "1.9%"
+  Text "(23)"
+  Text "Google Chrome"
+  Custom "" [focusable]
+  Text "1.4%"
+  Text "1.76 GB"
+  Text "2.4%"
+  Text "(9)"
+  Text "Visual Studio Code"
+  Custom "" [focusable]
+  Text "Network" [focusable]
+  Text "Disk" [focusable]
+  Text "GPU" [focusable]
+  Text "Memory" [focusable]
+  Text "CPU" [focusable]
+  Text "Name" [focusable]
+  Text "58 apps · 257 processes"
+  Button "End task" [focusable]
+  Edit "" [focusable]
+  Text "Net  400.9 KB/s"
+  Text "Disk  510.5 KB/s"
+  Text "GPU  13%"
+  Text "Memory  64%"
+  Text "CPU  15%"
+  Custom "" [focusable]
+  Text "Settings"
+  Custom "" [focusable]
+  Text "Battery"
+  Custom "" [focusable]
+  Text "Performance"
+  Custom "" [focusable]
+  Text "Processes"
+  Text "+"
+  Text "TaskManager"

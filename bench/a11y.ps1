@@ -64,7 +64,7 @@ try {
         $el, $depth = $stack.Pop()
         try { $c = $el.Current } catch { continue }   # element vanished mid-walk
         $count++
-        $type = $c.ControlType.ProgrammaticName -replace '^ControlType\.', ''
+        $type = if ($c.ControlType) { $c.ControlType.ProgrammaticName -replace '^ControlType\.', '' } else { '(none)' }
         $byType[$type] = 1 + ($byType[$type] ?? 0)
         if ($c.Name) { $named++ }
         if ($c.IsKeyboardFocusable) { $focusable++ }
