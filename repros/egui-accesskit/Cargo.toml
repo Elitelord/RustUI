@@ -1,0 +1,13 @@
+[package]
+name = "egui-accesskit-repros"
+version = "0.1.0"
+description = "Minimal repros for egui accessibility issues on Windows (UI Automation)"
+edition = "2024"
+publish = false
+
+# Standalone workspace, so it can be copied into an issue as-is.
+[workspace]
+
+[dependencies]
+eframe = { version = "=0.36.2", default-features = false, features = ["glow", "default_fonts", "accesskit"] }
+egui_extras = { version = "=0.36.2", default-features = false }
