@@ -19,7 +19,7 @@ Window "egui_extras table repro"
   ...
 ```
 
-Repro: <link to examples/table.rs and examples/table_virtual.rs>
+Repro: [`table.rs`](https://github.com/Elitelord/RustUI/blob/c4a1730e476d96db65e773804cf51b6721722c69/repros/egui-accesskit/examples/table.rs) (plain) and [`table_virtual.rs`](https://github.com/Elitelord/RustUI/blob/c4a1730e476d96db65e773804cf51b6721722c69/repros/egui-accesskit/examples/table_virtual.rs) (`TableBody::rows`, live values), plus [`probe.ps1`](https://github.com/Elitelord/RustUI/blob/c4a1730e476d96db65e773804cf51b6721722c69/repros/egui-accesskit/probe.ps1) to dump the UI Automation tree.
 
 **Describe the solution you'd like**
 

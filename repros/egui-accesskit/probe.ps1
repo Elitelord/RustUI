@@ -14,16 +14,19 @@
     ./probe.ps1 table
     ./probe.ps1 order
     ./probe.ps1 text_edit -SetValue hello
+    ./probe.ps1 text_edit -SetValue hello -Exe target\fork\release\examples\text_edit.exe
 #>
 param(
     [Parameter(Mandatory)] [ValidateSet('table', 'table_virtual', 'text_edit', 'order')] [string] $Example,
-    [string] $SetValue
+    [string] $SetValue,
+    # Probe a different build, e.g. one patched against a local egui checkout.
+    [string] $Exe
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 
-$exe = Join-Path $PSScriptRoot "target\release\examples\$Example.exe"
+$exe = if ($Exe) { $Exe } else { Join-Path $PSScriptRoot "target\release\examples\$Example.exe" }
 if (-not (Test-Path $exe)) { throw "Build first: cargo build --release --examples" }
 
 $proc = Start-Process $exe -PassThru

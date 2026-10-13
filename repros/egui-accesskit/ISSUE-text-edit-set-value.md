@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
 }
 ```
 
-With `eframe = { version = "0.36.2", features = ["accesskit"] }`, call `ValuePattern.SetValue` on the `Edit` element, for example with Accessibility Insights for Windows, or with this PowerShell probe: <link to probe.ps1>.
+With `eframe = { version = "0.36.2", features = ["accesskit"] }`, call `ValuePattern.SetValue` on the `Edit` element, for example with Accessibility Insights for Windows, or with this PowerShell probe: [`probe.ps1`](https://github.com/Elitelord/RustUI/blob/c4a1730e476d96db65e773804cf51b6721722c69/repros/egui-accesskit/probe.ps1).
 
 ```
 ValuePattern.IsReadOnly = False
