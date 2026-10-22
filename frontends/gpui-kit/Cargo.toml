@@ -1,0 +1,23 @@
+[package]
+name = "tmp-gpui-kit"
+version = "0.1.0"
+description = "TaskManager+ Lite's UI ported to gpui-kit, running on tmp-model"
+edition = "2024"
+publish = false
+
+# Its own workspace: GPUI's dependency graph stays out of the root lab workspace.
+[workspace]
+
+[dependencies]
+tmp-model = { path = "../../crates/tmp-model" }
+# The published release, like any app would use. To try a local fix, add
+# `[patch.crates-io] gpui-kit = { path = "../../../gpui-kit/crates/kit" }`
+# (and the sibling crates it pulls in) instead of editing this line.
+gpui-kit = "0.8"
+# Bridges the poll thread's wake-up into GPUI's async executor.
+smol = "2"
+
+[profile.release]
+# Matches gpui-kit's own release settings for GPUI.
+codegen-units = 1
+lto = "thin"

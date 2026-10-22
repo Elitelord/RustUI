@@ -21,6 +21,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $Exe,
+    # Command-line arguments for the exe, e.g. a story name for a gallery app.
+    [string[]] $Arguments = @(),
     [string] $Label,
     [ValidateRange(0, 120)] [int] $SettleSec = 3,
     [ValidateRange(1, 300)] [int] $TimeoutSec = 30,
@@ -36,7 +38,9 @@ $Exe = (Resolve-Path -LiteralPath $Exe).Path
 if (-not $Label) { $Label = [IO.Path]::GetFileNameWithoutExtension($Exe) }
 if (@(Get-Process | Where-Object { $_.Path -eq $Exe })) { throw "$Exe is already running. Close it first." }
 
-$proc = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru
+$start = @{ FilePath = $Exe; WorkingDirectory = (Split-Path $Exe); PassThru = $true }
+if ($Arguments.Count) { $start.ArgumentList = $Arguments }
+$proc = Start-Process @start
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
     while ($true) {
@@ -57,11 +61,19 @@ try {
     $count = 0; $named = 0; $focusable = 0
 
     # Depth-first walk under the window (the window itself isn't counted).
-    $stack = [Collections.Generic.Stack[object]]::new()
+    # Typed (element, depth) pairs: unpacking a plain two-item array can go
+    # wrong, which turned depth into an array on deeper trees.
+    $stack = [Collections.Generic.Stack[Tuple[Windows.Automation.AutomationElement, int]]]::new()
+    # Push the window's children last-first, like every other level below, so
+    # the tree comes out in document order.
+    $top = [Collections.Generic.List[Windows.Automation.AutomationElement]]::new()
     $child = $walker.GetFirstChild($root)
-    while ($child) { $stack.Push(@($child, 1)); $child = $walker.GetNextSibling($child) }
+    while ($child) { $top.Add($child); $child = $walker.GetNextSibling($child) }
+    for ($i = $top.Count - 1; $i -ge 0; $i--) { $stack.Push([Tuple]::Create($top[$i], 1)) }
     while ($stack.Count -and $count -lt $MaxElements) {
-        $el, $depth = $stack.Pop()
+        $item = $stack.Pop()
+        $el = $item.Item1
+        $depth = $item.Item2
         try { $c = $el.Current } catch { continue }   # element vanished mid-walk
         $count++
         $type = if ($c.ControlType) { $c.ControlType.ProgrammaticName -replace '^ControlType\.', '' } else { '(none)' }
@@ -72,7 +84,7 @@ try {
         $kids = [Collections.Generic.List[object]]::new()
         $k = $walker.GetFirstChild($el)
         while ($k) { $kids.Add($k); $k = $walker.GetNextSibling($k) }
-        for ($i = $kids.Count - 1; $i -ge 0; $i--) { $stack.Push(@($kids[$i], $depth + 1)) }
+        for ($i = $kids.Count - 1; $i -ge 0; $i--) { $stack.Push([Tuple]::Create([Windows.Automation.AutomationElement]$kids[$i], $depth + 1)) }
     }
     $windowName = $root.Current.Name
 }

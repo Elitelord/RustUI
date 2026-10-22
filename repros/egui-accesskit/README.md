@@ -23,4 +23,3 @@ Checked against egui `main` at 8f6d3d6 (2026-10-09) by reading the source. No ex
 
 Not upstream bugs (fix in the app):
 - Painter-drawn widgets built from `allocate_exact_size(…, Sense::click())` show up as `Custom` with no name. Give them a role and label.
-- Lite's process table lists rows bottom-up in the UIA tree. None of these repros does that, so the cause is something in lite's own table code.

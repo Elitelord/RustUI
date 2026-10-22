@@ -3,6 +3,7 @@ target/
 # Local planning notes
 PLAN.md
 RESEARCH.md
+CONTRIBUTIONS.md
 
 # Accessibility Insights exports embed a screenshot of live data
 bench/a11y-manual/

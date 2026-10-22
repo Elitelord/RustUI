@@ -64,7 +64,7 @@ Walks the UI Automation tree under the app's window, the same tree Narrator, NVD
 
 With accesskit, screen readers can finally see the window's contents, but the structure is weak (see `a11y-trees/egui-0.36-lab-synthetic-accesskit.txt`):
 
-- The process table is a flat list of `Text` elements, listed bottom-up. It has no table, row or column structure, so a screen reader can't say which numbers belong to which process.
+- The process table is a flat list of `Text` elements. It has no table, row or column structure, so a screen reader can't say which numbers belong to which process. (An earlier version of `a11y.ps1` printed the window's top-level elements in reverse, which made the table look bottom-up. Fixed on 2026-10-22; the counts were unaffected.)
 - The painter-drawn expander arrows are focusable `Custom` elements with no name.
 - 18 elements have no control type at all.
 - The filter box is a real `Edit`, but it ignores UI Automation's `ValuePattern.SetValue`, so assistive tools can't type into it that way.
