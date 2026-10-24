@@ -7,6 +7,7 @@
 //!   app        window shell and the poll-thread bridge
 
 mod app;
+mod perf;
 mod processes;
 
 use gpui_kit::component::{Theme, ThemeMode};
