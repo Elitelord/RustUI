@@ -57,7 +57,9 @@ impl DisplayRow {
     /// to accessibility, so the row's cells are invisible without this.
     fn accessible_label(&self) -> String {
         let mut parts = vec![match &self.kind {
-            RowKind::Group { name, count, .. } if *count > 1 => format!("{name}, {count} processes"),
+            RowKind::Group { name, count, .. } if *count > 1 => {
+                format!("{name}, {count} processes")
+            }
             RowKind::Group { name, .. } => name.to_string(),
             RowKind::Child { role, title, .. } => match (role, title.is_empty()) {
                 (Some(role), false) => format!("{role}, {title}"),
@@ -425,8 +427,7 @@ impl ProcessesView {
         });
         let owner = cx.entity().downgrade();
         let table = cx.new(|cx| {
-            TableState::new(ProcDelegate::new(owner, initial), window, cx)
-                .col_movable(false)
+            TableState::new(ProcDelegate::new(owner, initial), window, cx).col_movable(false)
         });
 
         let subscriptions = vec![
@@ -497,7 +498,9 @@ impl ProcessesView {
             return;
         }
         match wanted {
-            Some(ix) => self.table.update(cx, |table, cx| table.set_selected_row(ix, cx)),
+            Some(ix) => self
+                .table
+                .update(cx, |table, cx| table.set_selected_row(ix, cx)),
             None => {
                 self.selected = None;
                 self.table.update(cx, |table, cx| table.clear_selection(cx));

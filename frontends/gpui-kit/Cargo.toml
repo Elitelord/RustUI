@@ -16,6 +16,11 @@ tmp-model = { path = "../../crates/tmp-model" }
 gpui-kit = "0.8"
 # Bridges the poll thread's wake-up into GPUI's async executor.
 smol = "2"
+# Always on top: GPUI has no option for it, so the lab sets it on the HWND.
+raw-window-handle = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [profile.release]
 # Matches gpui-kit's own release settings for GPUI.

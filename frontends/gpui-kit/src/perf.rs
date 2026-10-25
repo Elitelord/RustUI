@@ -40,7 +40,13 @@ fn cpu_card(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> Div
     let c = color(palette::CPU);
     let l1 = s.l1d_cache_kb + s.l1i_cache_kb;
     card(cx)
-        .child(head("CPU", format!("{:.1}%", s.cpu_usage_percent), c, &s.cpu_name, cx))
+        .child(head(
+            "CPU",
+            format!("{:.1}%", s.cpu_usage_percent),
+            c,
+            &s.cpu_name,
+            cx,
+        ))
         .child(sparkline("spark-cpu", &hist.cpu, c, true, cx))
         .child(
             details()
@@ -56,10 +62,16 @@ fn cpu_card(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> Div
                     d.child(kv("Max", ghz(s.cpu_max_frequency_mhz), cx))
                 })
                 .when(l1 > 0, |d| d.child(kv("L1", kb(l1), cx)))
-                .when(s.l2_cache_kb > 0, |d| d.child(kv("L2", kb(s.l2_cache_kb), cx)))
-                .when(s.l3_cache_kb > 0, |d| d.child(kv("L3", kb(s.l3_cache_kb), cx))),
+                .when(s.l2_cache_kb > 0, |d| {
+                    d.child(kv("L2", kb(s.l2_cache_kb), cx))
+                })
+                .when(s.l3_cache_kb > 0, |d| {
+                    d.child(kv("L3", kb(s.l3_cache_kb), cx))
+                }),
         )
-        .when(!per_core.is_empty(), |card| card.child(core_grid(per_core, cx)))
+        .when(!per_core.is_empty(), |card| {
+            card.child(core_grid(per_core, cx))
+        })
 }
 
 fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
@@ -82,15 +94,21 @@ fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         .child(head("Memory", value, c, "", cx))
         .child(sparkline("spark-mem", &hist.mem, c, true, cx))
         .child(stacked_bar(&segments, m.total.max(1.0), cx))
-        .child(details().children(segments.iter().map(|(label, bytes, swatch)| {
-            h_flex()
-                .gap_1()
-                .child(div().size(px(9.)).rounded_sm().bg(*swatch))
-                .child(kv(label, fmt::bytes(*bytes), cx))
-        })))
+        .child(
+            details().children(segments.iter().map(|(label, bytes, swatch)| {
+                h_flex()
+                    .gap_1()
+                    .child(div().size(px(9.)).rounded_sm().bg(*swatch))
+                    .child(kv(label, fmt::bytes(*bytes), cx))
+            })),
+        )
         .child(
             details()
-                .child(kv("Available", fmt::bytes(s.available_ram_bytes as f64), cx))
+                .child(kv(
+                    "Available",
+                    fmt::bytes(s.available_ram_bytes as f64),
+                    cx,
+                ))
                 .when(s.commit_limit_bytes > 0, |d| {
                     d.child(kv(
                         "Committed",
@@ -118,13 +136,24 @@ fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
 fn gpu_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
     let c = color(palette::GPU);
     card(cx)
-        .child(head("GPU", format!("{:.1}%", s.gpu_usage_percent), c, &s.gpu_name, cx))
+        .child(head(
+            "GPU",
+            format!("{:.1}%", s.gpu_usage_percent),
+            c,
+            &s.gpu_name,
+            cx,
+        ))
         .child(sparkline("spark-gpu", &hist.gpu, c, true, cx))
         .child(
             details()
                 .child(kv(
                     "Type",
-                    if s.gpu_is_integrated { "Integrated" } else { "Discrete" }.to_string(),
+                    if s.gpu_is_integrated {
+                        "Integrated"
+                    } else {
+                        "Discrete"
+                    }
+                    .to_string(),
                     cx,
                 ))
                 .when(s.gpu_memory_total > 0, |d| {
@@ -181,7 +210,11 @@ fn disk_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
                 .child(kv("Read", fmt::rate(s.disk_read_per_sec), cx))
                 .child(kv("Write", fmt::rate(s.disk_write_per_sec), cx))
                 .child(kv("Active", format!("{:.0}%", s.disk_active_percent), cx))
-                .child(kv("Queue", format!("{:.2}", s.disk_queue_length as f64), cx)),
+                .child(kv(
+                    "Queue",
+                    format!("{:.2}", s.disk_queue_length as f64),
+                    cx,
+                )),
         )
 }
 
@@ -209,7 +242,13 @@ fn network_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
 fn npu_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
     let c = color(palette::NPU);
     card(cx)
-        .child(head("NPU", format!("{:.1}%", s.npu_usage_percent), c, &s.npu_name, cx))
+        .child(head(
+            "NPU",
+            format!("{:.1}%", s.npu_usage_percent),
+            c,
+            &s.npu_name,
+            cx,
+        ))
         .child(sparkline("spark-npu", &hist.npu, c, true, cx))
         .child(
             details()
@@ -347,35 +386,43 @@ fn stacked_bar(segments: &[(&str, f64, Hsla)], total: f64, cx: &App) -> Div {
         .rounded_sm()
         .overflow_hidden()
         .bg(track(cx))
-        .children(segments.iter().filter(|(_, bytes, _)| *bytes > 0.0).map(
-            |(_, bytes, fill)| {
-                div()
-                    .h_full()
-                    .w(relative((*bytes / total) as f32))
-                    .bg(*fill)
-            },
-        ))
+        .children(
+            segments
+                .iter()
+                .filter(|(_, bytes, _)| *bytes > 0.0)
+                .map(|(_, bytes, fill)| {
+                    div()
+                        .h_full()
+                        .w(relative((*bytes / total) as f32))
+                        .bg(*fill)
+                }),
+        )
 }
 
 /// Per-core usage as a wrapped row of vertical bars, colored by load.
 fn core_grid(cores: &[CoreCpu], cx: &App) -> Div {
-    h_flex().flex_wrap().gap_1().children(cores.iter().map(|core| {
-        let fill = (core.usage_percent / 100.0).clamp(0.0, 1.0) as f32;
-        div()
-            .relative()
-            .w(px(12.))
-            .h(px(32.))
-            .rounded_sm()
-            .overflow_hidden()
-            .bg(track(cx))
-            .child(
-                div()
-                    .absolute()
-                    .bottom_0()
-                    .left_0()
-                    .w_full()
-                    .h(relative(fill))
-                    .bg(color(palette::level(derived::CORE.level(core.usage_percent)))),
-            )
-    }))
+    h_flex()
+        .flex_wrap()
+        .gap_1()
+        .children(cores.iter().map(|core| {
+            let fill = (core.usage_percent / 100.0).clamp(0.0, 1.0) as f32;
+            div()
+                .relative()
+                .w(px(12.))
+                .h(px(32.))
+                .rounded_sm()
+                .overflow_hidden()
+                .bg(track(cx))
+                .child(
+                    div()
+                        .absolute()
+                        .bottom_0()
+                        .left_0()
+                        .w_full()
+                        .h(relative(fill))
+                        .bg(color(palette::level(
+                            derived::CORE.level(core.usage_percent),
+                        ))),
+                )
+        }))
 }

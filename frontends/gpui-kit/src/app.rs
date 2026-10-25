@@ -5,28 +5,37 @@
 //! sample and the UI otherwise sleeps. GPUI only redraws a view when it is
 //! notified, so the bridge notifies once per tick and nothing else repaints.
 
-use gpui_kit::component::sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem};
+use gpui_kit::component::sidebar::{
+    Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem,
+};
 use gpui_kit::component::{ActiveTheme as _, IconName, StyledExt as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
+use std::rc::Rc;
+
 use gpui_kit::*;
 use tmp_model::settings::LiteSettings;
 use tmp_model::{
     CoreCpu, History, Poller, SharedModel, Snapshot, Synthetic, derived, fmt, palette, spawn_poller,
 };
 
-use crate::perf;
 use crate::processes::ProcessesView;
+use crate::settings::SettingsView;
+use crate::{battery, perf};
 
 #[derive(Clone, Copy, PartialEq)]
 enum Page {
     Processes,
     Performance,
+    Battery,
+    Settings,
 }
 
 impl Page {
     fn from_key(key: &str) -> Self {
         match key {
             "performance" => Page::Performance,
+            "battery" => Page::Battery,
+            "settings" => Page::Settings,
             _ => Page::Processes,
         }
     }
@@ -36,13 +45,15 @@ pub struct LiteApp {
     model: SharedModel,
     page: Page,
     processes: Entity<ProcessesView>,
+    settings: Entity<SettingsView>,
     /// The latest data, copied out of the model on each tick.
     snap: Option<Snapshot>,
     history: History,
     per_core: Vec<CoreCpu>,
     poll_error: Option<String>,
-    /// Kept alive for the life of the window: dropping it stops the poll thread.
-    _poller: Poller,
+    /// Kept alive for the life of the window: dropping it stops the poll
+    /// thread. Shared with the Settings page, which changes its cadence.
+    _poller: Rc<Poller>,
     _ticks: Task<()>,
 }
 
@@ -53,12 +64,18 @@ impl LiteApp {
         // The poll thread can't touch GPUI, so it only signals a channel. A
         // foreground task waits on it and pushes the new data into the views.
         let (wake, woken) = smol::channel::bounded::<()>(1);
-        let poller = spawn_poller(Synthetic::default(), model.clone(), saved.refresh_ms, move || {
-            // A full channel already holds a pending wake-up, which is enough.
-            let _ = wake.try_send(());
-        });
+        let poller = Rc::new(spawn_poller(
+            Synthetic::default(),
+            model.clone(),
+            saved.refresh_ms,
+            move || {
+                // A full channel already holds a pending wake-up, which is enough.
+                let _ = wake.try_send(());
+            },
+        ));
 
         let processes = cx.new(|cx| ProcessesView::new(window, cx));
+        let settings = cx.new(|_| SettingsView::new(saved.clone(), poller.clone()));
 
         let ticks = cx.spawn_in(window, async move |this, cx| {
             while woken.recv().await.is_ok() {
@@ -76,6 +93,7 @@ impl LiteApp {
                 &std::env::var("TMP_LAB_PAGE").unwrap_or_else(|_| saved.default_page.clone()),
             ),
             processes,
+            settings,
             snap: None,
             history: History::default(),
             per_core: Vec::new(),
@@ -123,10 +141,14 @@ impl LiteApp {
                         .child(div().text_color(cx.theme().primary).child("+")),
                 ),
             )
-            .child(SidebarGroup::new("Pages").child(SidebarMenu::new().children([
-                item("Processes", IconName::LayoutDashboard, Page::Processes, cx),
-                item("Performance", IconName::ChartPie, Page::Performance, cx),
-            ])))
+            .child(
+                SidebarGroup::new("Pages").child(SidebarMenu::new().children([
+                    item("Processes", IconName::LayoutDashboard, Page::Processes, cx),
+                    item("Performance", IconName::Cpu, Page::Performance, cx),
+                    item("Battery", IconName::BatteryFull, Page::Battery, cx),
+                    item("Settings", IconName::Settings, Page::Settings, cx),
+                ])),
+            )
     }
 
     /// The live stats strip above the pages.
@@ -195,6 +217,8 @@ impl Render for LiteApp {
             (Some(s), Page::Performance) => {
                 perf::page(s, &self.history, &self.per_core, cx).into_any_element()
             }
+            (Some(s), Page::Battery) => battery::page(s, cx).into_any_element(),
+            (Some(_), Page::Settings) => self.settings.clone().into_any_element(),
         };
 
         h_flex()

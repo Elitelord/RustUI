@@ -6328,8 +6328,10 @@ name = "tmp-gpui-kit"
 version = "0.1.0"
 dependencies = [
  "gpui-kit",
+ "raw-window-handle",
  "smol",
  "tmp-model",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
