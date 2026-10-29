@@ -92,8 +92,7 @@ impl Render for SettingsView {
         let page = SettingPage::new("Lite window")
             .description("Preferences for the lite window. Stored separately from the main app.")
             .default_open(true)
-            .group(
-                SettingGroup::new().items(vec![
+            .group(SettingGroup::new().items(vec![
                     SettingItem::new("Refresh rate", refresh)
                         .description("How often telemetry is polled. Slower saves CPU."),
                     SettingItem::new("Default page", default_page)
@@ -101,8 +100,7 @@ impl Render for SettingsView {
                     SettingItem::new("Always on top", always_on_top).description(
                         "Keep the lite window above other windows (applies on next launch).",
                     ),
-                ]),
-            );
+                ]));
 
         Settings::new("settings").page(page)
     }

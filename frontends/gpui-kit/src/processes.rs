@@ -53,33 +53,28 @@ impl DisplayRow {
         }
     }
 
-    /// What a screen reader should say for the row. GPUI exposes no plain text
-    /// to accessibility, so the row's cells are invisible without this.
-    fn accessible_label(&self) -> String {
-        let mut parts = vec![match &self.kind {
-            RowKind::Group { name, count, .. } if *count > 1 => {
-                format!("{name}, {count} processes")
-            }
-            RowKind::Group { name, .. } => name.to_string(),
-            RowKind::Child { role, title, .. } => match (role, title.is_empty()) {
-                (Some(role), false) => format!("{role}, {title}"),
-                (Some(role), true) => role.to_string(),
-                (None, false) => title.to_string(),
-                (None, true) => "Process".to_string(),
-            },
-        }];
-        parts.push(format!("CPU {:.1}%", self.cpu));
-        parts.push(format!("Memory {}", fmt::mb(self.mem)));
-        if self.gpu >= 0.05 {
-            parts.push(format!("GPU {:.1}%", self.gpu));
+    /// The text a screen reader reads for one cell: what `render_td` draws,
+    /// or `None` where the cell is left blank.
+    fn cell_text(&self, key: SortKey) -> Option<String> {
+        match key {
+            SortKey::Name => Some(match &self.kind {
+                RowKind::Group { name, count, .. } if *count > 1 => {
+                    format!("{name}, {count} processes")
+                }
+                RowKind::Group { name, .. } => name.to_string(),
+                RowKind::Child { role, title, .. } => match (role, title.is_empty()) {
+                    (Some(role), false) => format!("{role} — {title}"),
+                    (Some(role), true) => role.to_string(),
+                    (None, false) => title.to_string(),
+                    (None, true) => "Process".to_string(),
+                },
+            }),
+            SortKey::Cpu => Some(format!("{:.1}%", self.cpu)),
+            SortKey::Gpu => (self.gpu >= 0.05).then(|| format!("{:.1}%", self.gpu)),
+            SortKey::Memory => Some(fmt::mb(self.mem)),
+            SortKey::Disk => (self.disk >= 1.0).then(|| fmt::rate(self.disk)),
+            SortKey::Net => (self.net >= 1.0).then(|| fmt::rate(self.net)),
         }
-        if self.disk >= 1.0 {
-            parts.push(format!("Disk {}", fmt::rate(self.disk)));
-        }
-        if self.net >= 1.0 {
-            parts.push(format!("Network {}", fmt::rate(self.net)));
-        }
-        parts.join(", ")
     }
 
     fn pid(&self) -> Option<u32> {
@@ -278,12 +273,22 @@ impl TableDelegate for ProcDelegate {
                         .into_any_element()
                 }
             },
-            SortKey::Cpu => right(percent(row.cpu, true, mono)),
-            SortKey::Gpu => right(percent(row.gpu, false, mono)),
-            SortKey::Memory => right(div().font_family(mono).child(fmt::mb(row.mem))),
-            SortKey::Disk => right(rate(row.disk, mono, cx)),
-            SortKey::Net => right(rate(row.net, mono, cx)),
+            SortKey::Cpu => percent(row.cpu, true, mono),
+            SortKey::Gpu => percent(row.gpu, false, mono),
+            SortKey::Memory => div()
+                .font_family(mono)
+                .child(fmt::mb(row.mem))
+                .into_any_element(),
+            SortKey::Disk => rate(row.disk, mono, cx),
+            SortKey::Net => rate(row.net, mono, cx),
         }
+    }
+
+    fn cell_label(&self, row_ix: usize, col_ix: usize, _: &App) -> Option<SharedString> {
+        self.rows
+            .get(row_ix)?
+            .cell_text(SortKey::COLUMNS[col_ix])
+            .map(Into::into)
     }
 
     fn render_tr(
@@ -296,7 +301,6 @@ impl TableDelegate for ProcDelegate {
         let Some(row) = self.rows.get(row_ix) else {
             return tr;
         };
-        let tr = tr.aria_label(row.accessible_label());
         let RowKind::Group {
             name,
             count,
@@ -327,20 +331,6 @@ impl TableDelegate for ProcDelegate {
             })
     }
 
-    fn render_th(
-        &mut self,
-        col_ix: usize,
-        _: &mut Window,
-        _: &mut Context<TableState<Self>>,
-    ) -> impl IntoElement {
-        let key = SortKey::COLUMNS[col_ix];
-        if key == SortKey::Name {
-            div().size_full().child(key.label()).into_any_element()
-        } else {
-            right(div().child(key.label()))
-        }
-    }
-
     fn context_menu(
         &mut self,
         row_ix: usize,
@@ -367,17 +357,6 @@ impl TableDelegate for ProcDelegate {
                 let _ = owner.update(cx, |view, cx| view.end_task(selection, cx));
             }))
     }
-}
-
-/// Right-aligns a cell. `DataTable` ignores `Column::text_right()` in v0.8.0
-/// (neither the header nor the body cells read the column's alignment), so the
-/// numeric columns align themselves.
-fn right(cell: impl IntoElement) -> AnyElement {
-    h_flex()
-        .size_full()
-        .justify_end()
-        .child(cell)
-        .into_any_element()
 }
 
 /// A percentage, colored by load. `show_zero` = false blanks near-zero values

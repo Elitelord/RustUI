@@ -13,7 +13,7 @@ tmp-model = { path = "../../crates/tmp-model" }
 # The published release, like any app would use. To try a local fix, add
 # `[patch.crates-io] gpui-kit = { path = "../../../gpui-kit/crates/kit" }`
 # (and the sibling crates it pulls in) instead of editing this line.
-gpui-kit = "0.8"
+gpui-kit = "0.8.1"
 # Bridges the poll thread's wake-up into GPUI's async executor.
 smol = "2"
 # Always on top: GPUI has no option for it, so the lab sets it on the HWND.

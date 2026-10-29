@@ -1,0 +1,271 @@
+diff --git a/src/events.rs b/src/events.rs
+index 08f91bd..a63cae9 100644
+--- a/src/events.rs
++++ b/src/events.rs
+@@ -164,6 +164,12 @@ impl WindowsWindowInner {
+         };
+         if let Some(n) = handled {
+             LRESULT(n)
++        } else if msg == WM_PAINT {
++            let start = std::time::Instant::now();
++            let r = unsafe { DefWindowProcW(handle, msg, wparam, lparam) };
++            crate::stats::DEF_PAINT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            crate::stats::add_ns(&crate::stats::DEF_PAINT_NS, start);
++            r
+         } else {
+             unsafe { DefWindowProcW(handle, msg, wparam, lparam) }
+         }
+@@ -1354,7 +1360,10 @@ impl WindowsWindowInner {
+             unsafe { ValidateRect(Some(handle), None).ok().log_err() };
+             return Some(0);
+         };
+-        let mut request_frame = self.state.callbacks.request_frame.take()?;
++        let Some(mut request_frame) = self.state.callbacks.request_frame.take() else {
++            crate::stats::PAINT_NO_CALLBACK.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            return None;
++        };
+ 
+         self.state.direct_manipulation.update();
+ 
+@@ -1378,12 +1387,15 @@ impl WindowsWindowInner {
+             (None, FrameRequestSource::NativeCallback),
+             |(at, source)| (Some(at), source),
+         );
++        crate::stats::FRAME_CALLBACKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        let frame_start = std::time::Instant::now();
+         request_frame(RequestFrameOptions {
+             require_presentation: false,
+             force_render,
+             signal_at,
+             signal_source,
+         });
++        crate::stats::add_ns(&crate::stats::FRAME_NS, frame_start);
+ 
+         self.state.callbacks.request_frame.set(Some(request_frame));
+         self.update_ime_enabled(handle);
+diff --git a/src/gpui_windows.rs b/src/gpui_windows.rs
+index e7a45a0..3f4fba2 100644
+--- a/src/gpui_windows.rs
++++ b/src/gpui_windows.rs
+@@ -13,6 +13,7 @@ mod display;
+ mod events;
+ mod keyboard;
+ mod platform;
++mod stats;
+ mod system_notifications;
+ mod system_settings;
+ mod util;
+diff --git a/src/platform.rs b/src/platform.rs
+index 095e009..cfda9a1 100644
+--- a/src/platform.rs
++++ b/src/platform.rs
+@@ -446,6 +446,7 @@ impl WindowsPlatform {
+         let text_system = Arc::downgrade(direct_write_text_system);
+         let invalidate_devices = self.invalidate_devices.clone();
+ 
++        crate::stats::start_dumper();
+         std::thread::Builder::new()
+             .name("VSyncProvider".to_owned())
+             .spawn(move || {
+@@ -472,17 +473,23 @@ impl WindowsPlatform {
+                     let Some(all_windows) = all_windows.upgrade() else {
+                         break;
+                     };
++                    crate::stats::VSYNC_TICKS.fetch_add(1, Ordering::Relaxed);
+                     for hwnd in all_windows.read().iter() {
+                         unsafe {
++                            // A hidden or minimized window has nothing to show, so it
++                            // isn't woken each vsync. Windows queues a WM_PAINT when it
++                            // is shown or restored, which resumes drawing.
++                            if crate::stats::guard_enabled()
++                                && (!IsWindowVisible(hwnd.as_raw()).as_bool()
++                                    || IsIconic(hwnd.as_raw()).as_bool())
++                            {
++                                hwnd.frame_signal.take();
++                                crate::stats::SKIPPED_HIDDEN.fetch_add(1, Ordering::Relaxed);
++                                continue;
++                            }
++                            crate::stats::INVALIDATES.fetch_add(1, Ordering::Relaxed);
+                             if let Some(signal_at) = signal_at {
+-                                if IsWindowVisible(hwnd.as_raw()).as_bool()
+-                                    && !IsIconic(hwnd.as_raw()).as_bool()
+-                                {
+-                                    hwnd.frame_signal.record(signal_at, signal_source);
+-                                } else {
+-                                    // Hidden windows may not consume WM_PAINT until shown again.
+-                                    hwnd.frame_signal.take();
+-                                }
++                                hwnd.frame_signal.record(signal_at, signal_source);
+                             }
+                             RedrawWindow(Some(hwnd.as_raw()), None, None, RDW_INVALIDATE)
+                                 .ok()
+@@ -590,6 +597,7 @@ impl Platform for WindowsPlatform {
+         let mut msg = MSG::default();
+         unsafe {
+             while GetMessageW(&mut msg, None, 0, 0).as_bool() {
++                crate::stats::LOOP_MSGS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 if !self.inner.translate_accelerator(&msg) {
+                     _ = TranslateMessage(&msg);
+                     DispatchMessageW(&msg);
+@@ -1782,6 +1790,17 @@ unsafe extern "system" fn window_procedure(
+     msg: u32,
+     wparam: WPARAM,
+     lparam: LPARAM,
++) -> LRESULT {
++    crate::stats::timed(&crate::stats::PLATFORM_MSGS, &crate::stats::PLATFORM_NS, || unsafe {
++        window_procedure_inner(hwnd, msg, wparam, lparam)
++    })
++}
++
++unsafe fn window_procedure_inner(
++    hwnd: HWND,
++    msg: u32,
++    wparam: WPARAM,
++    lparam: LPARAM,
+ ) -> LRESULT {
+     if msg == WM_NCCREATE {
+         let params = unsafe { &*(lparam.0 as *const CREATESTRUCTW) };
+diff --git a/b/src/stats.rs b/src/stats.rs
+new file mode 100644
+index 0000000..2d19657
+--- /dev/null
++++ b/src/stats.rs
+@@ -0,0 +1,107 @@
++//! Scratch instrumentation for zed#66221, not meant for upstream.
++//!
++//! `GPUI_PAINT_STATS=<file>` appends one line of cumulative counters per
++//! second. `GPUI_VSYNC_GUARD=0` turns the hidden/minimized guard off.
++
++use std::{
++    cell::Cell,
++    io::Write,
++    sync::{
++        OnceLock,
++        atomic::{AtomicU64, Ordering::Relaxed},
++    },
++    time::{Duration, Instant},
++};
++
++macro_rules! counters {
++    ($($name:ident),* $(,)?) => {
++        $(pub static $name: AtomicU64 = AtomicU64::new(0);)*
++        fn snapshot() -> String {
++            let mut s = String::new();
++            $(s.push_str(&format!(" {}={}", stringify!($name).to_lowercase(), $name.load(Relaxed)));)*
++            s
++        }
++    };
++}
++
++counters!(
++    // VSyncProvider thread
++    VSYNC_TICKS,
++    INVALIDATES,
++    SKIPPED_HIDDEN,
++    // GPUI window procedure (outermost calls only for the time)
++    WND_MSGS,
++    WND_NS,
++    PAINT_MSGS,
++    PAINT_NS,
++    // draw_window
++    PAINT_NO_CALLBACK,
++    FRAME_CALLBACKS,
++    FRAME_NS,
++    // WM_PAINT left to DefWindowProcW (no frame callback)
++    DEF_PAINT,
++    DEF_PAINT_NS,
++    // platform (dispatcher) window procedure: foreground tasks, timers
++    PLATFORM_MSGS,
++    PLATFORM_NS,
++    // GetMessageW loop iterations
++    LOOP_MSGS,
++);
++
++thread_local! {
++    static DEPTH: Cell<u32> = const { Cell::new(0) };
++}
++
++pub fn guard_enabled() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| std::env::var("GPUI_VSYNC_GUARD").map_or(true, |v| v != "0"))
++}
++
++pub fn start_dumper() {
++    static STARTED: OnceLock<()> = OnceLock::new();
++    let Ok(path) = std::env::var("GPUI_PAINT_STATS") else {
++        return;
++    };
++    if STARTED.set(()).is_err() {
++        return;
++    }
++    let start = Instant::now();
++    std::thread::Builder::new()
++        .name("paint-stats".into())
++        .spawn(move || {
++            let Ok(mut file) = std::fs::OpenOptions::new()
++                .create(true)
++                .append(true)
++                .open(&path)
++            else {
++                return;
++            };
++            writeln!(file, "# guard={}", guard_enabled()).ok();
++            loop {
++                std::thread::sleep(Duration::from_secs(1));
++                writeln!(file, "t={:.1}{}", start.elapsed().as_secs_f64(), snapshot()).ok();
++            }
++        })
++        .ok();
++}
++
++/// Times an outermost call on this thread into `ns`, counting every call.
++pub fn timed<R>(count: &AtomicU64, ns: &AtomicU64, f: impl FnOnce() -> R) -> R {
++    count.fetch_add(1, Relaxed);
++    let outer = DEPTH.with(|d| {
++        let v = d.get();
++        d.set(v + 1);
++        v == 0
++    });
++    let start = Instant::now();
++    let r = f();
++    if outer {
++        ns.fetch_add(start.elapsed().as_nanos() as u64, Relaxed);
++    }
++    DEPTH.with(|d| d.set(d.get() - 1));
++    r
++}
++
++pub fn add_ns(ns: &AtomicU64, start: Instant) {
++    ns.fetch_add(start.elapsed().as_nanos() as u64, Relaxed);
++}
+diff --git a/src/window.rs b/src/window.rs
+index c467101..be80512 100644
+--- a/src/window.rs
++++ b/src/window.rs
+@@ -1444,6 +1444,26 @@ unsafe extern "system" fn window_procedure(
+     msg: u32,
+     wparam: WPARAM,
+     lparam: LPARAM,
++) -> LRESULT {
++    if msg == WM_PAINT {
++        crate::stats::PAINT_MSGS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        let start = std::time::Instant::now();
++        let r = crate::stats::timed(&crate::stats::WND_MSGS, &crate::stats::WND_NS, || unsafe {
++            window_procedure_inner(hwnd, msg, wparam, lparam)
++        });
++        crate::stats::add_ns(&crate::stats::PAINT_NS, start);
++        return r;
++    }
++    crate::stats::timed(&crate::stats::WND_MSGS, &crate::stats::WND_NS, || unsafe {
++        window_procedure_inner(hwnd, msg, wparam, lparam)
++    })
++}
++
++unsafe fn window_procedure_inner(
++    hwnd: HWND,
++    msg: u32,
++    wparam: WPARAM,
++    lparam: LPARAM,
+ ) -> LRESULT {
+     if msg == WM_NCCREATE {
+         let window_params = unsafe { &*(lparam.0 as *const CREATESTRUCTW) };

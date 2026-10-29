@@ -1,0 +1,30 @@
+diff --git a/crates/gpui_windows/src/platform.rs b/crates/gpui_windows/src/platform.rs
+index 72731ec..68b6ddd 100644
+--- a/crates/gpui_windows/src/platform.rs
++++ b/crates/gpui_windows/src/platform.rs
+@@ -487,15 +487,17 @@ impl WindowsPlatform {
+                     };
+                     for hwnd in all_windows.read().iter() {
+                         unsafe {
++                            // A hidden or minimized window has nothing to show, so it
++                            // isn't woken each vsync. Windows queues a WM_PAINT when it
++                            // is shown or restored, which resumes drawing.
++                            if !IsWindowVisible(hwnd.as_raw()).as_bool()
++                                || IsIconic(hwnd.as_raw()).as_bool()
++                            {
++                                hwnd.frame_signal.take();
++                                continue;
++                            }
+                             if let Some(signal_at) = signal_at {
+-                                if IsWindowVisible(hwnd.as_raw()).as_bool()
+-                                    && !IsIconic(hwnd.as_raw()).as_bool()
+-                                {
+-                                    hwnd.frame_signal.record(signal_at, signal_source);
+-                                } else {
+-                                    // Hidden windows may not consume WM_PAINT until shown again.
+-                                    hwnd.frame_signal.take();
+-                                }
++                                hwnd.frame_signal.record(signal_at, signal_source);
+                             }
+                             RedrawWindow(Some(hwnd.as_raw()), None, None, RDW_INVALIDATE)
+                                 .ok()
