@@ -49,7 +49,7 @@ What this shows:
 - Startup differences of ±10 ms are noise. Every egui build shows its window before the first paint.
 - **gpui-kit uses less than half the memory of egui** (34 MB vs 74 MB private working set), with a 3× larger exe. The first of its three runs measured 66.5 MB, probably a cold start, so the median of the other two decides.
 - **gpui-kit idles at about 1.8 % of a core regardless of updates, because GPUI wakes on every vsync.** At a 5 s refresh it still measured 1.89 %, against 2.26 % at 1 s (diagnostic run, not recorded here), so the once-a-second redraw isn't the cost. Per-thread sampling shows the main thread running at the display rate. On Windows, GPUI's `VSyncProvider` thread invalidates every window after each vblank, and each wake runs a frame check even when nothing changed. GPUI does the same on macOS while a window is visible, so this baseline is by design.
-- **A minimized gpui-kit window doesn't get cheaper.** Unlike macOS, which stops its display link for hidden windows, GPUI on Windows keeps invalidating minimized ones: the lab measured 3.91 % visible and 3.36 % minimized (egui: 1.98 % and 0.42 %). Patching GPUI to skip hidden and minimized windows brought minimized down to 0.70 % without changing visible CPU, and drawing resumes on restore. Diagnostic runs with `threads.ps1` (CPU per named thread, `-Minimize` to minimize first; 3 runs of 20 s each), not recorded in `results.jsonl`. The patch and an upstream issue draft are in `repros/gpui-idle-vsync/`.
+- **A minimized gpui-kit window doesn't get cheaper.** Unlike macOS, which stops its display link for hidden windows, GPUI on Windows keeps invalidating minimized ones: the lab measured 3.91 % visible and 3.36 % minimized (egui: 1.98 % and 0.42 %). Patching GPUI to skip hidden and minimized windows brought minimized down to 0.70 % without changing visible CPU, and drawing resumes on restore. Diagnostic runs with `threads.ps1` (CPU per named thread, `-Minimize` to minimize first; 3 runs of 20 s each), not recorded in `results.jsonl`. Reported upstream as [zed-industries/zed#66221](https://github.com/zed-industries/zed/issues/66221). Counting messages showed that a minimized window runs no GPUI frame: each wake is a `WM_PAINT` that falls through to `DefWindowProcW`, which costs about 0.19 ms, more than a visible no-change frame check (about 0.11 ms). The patch, the message counters and their results are in `repros/gpui-idle-vsync/`.
 - **gpui-kit's 203 ms startup is real.** Unlike egui, its window appears with its first frame drawn.
 
 ## Accessibility
@@ -67,6 +67,7 @@ Walks the UI Automation tree under the app's window, the same tree Narrator, NVD
 | egui 0.36 lab (synthetic, no accesskit) | 0 | 0 | 0 |
 | egui 0.36 lab (synthetic, accesskit) | 136 | 98 | 26 |
 | gpui-kit 0.8.1 lab (synthetic) | 153 | 89 | 2 |
+| gpui-kit 0.9.0 lab (synthetic) | 153 | 88 | 2 |
 
 With accesskit, screen readers can finally see the window's contents, but the structure is weak (see `a11y-trees/egui-0.36-lab-synthetic-accesskit.txt`):
 
@@ -83,7 +84,8 @@ gpui-kit 0.8.1 exposes the process table as a real data grid (see `a11y-trees/gp
 - expand and collapse through UIA.
 
 That structure arrived upstream in longbridge/gpui-kit#3667. The unnamed elements are blank cells, which are blank on screen too. The weak spots:
-- Almost nothing is keyboard-focusable (2 elements).
+- Almost nothing is keyboard-focusable (2 elements). On 0.8.1 those were the filter box and the disabled End task button, and the table couldn't take focus. On 0.9.0 they are the filter box and the data grid (longbridge/gpui-kit#3727), and focus follows the selected row (#3758). Disabled buttons are no longer Tab stops. The counts hide this, so compare `a11y-trees/gpui-kit-0.8.1-lab-synthetic.txt` with `gpui-kit-0.9.0-lab-synthetic.txt`. The 0.9.0 lab also names its grid ("Processes").
+- Rows have no name, so a screen reader moving through them hears only "data item" until longbridge/gpui-kit#3773 lands. Patched onto it, the lab's rows read "Visual Studio Code, 9 processes, 2.7%, 1.76 GB, 0.8%".
 - On the other pages, gpui-kit's `Label` and plain text aren't exposed at all. See `frontends/gpui-kit/README.md`.
 
 The installed lite exposes nothing below its window, because eframe is built without accesskit. To a screen reader, the window is a titled empty box.

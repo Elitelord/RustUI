@@ -477,9 +477,17 @@ impl ProcessesView {
             return;
         }
         match wanted {
-            Some(ix) => self
-                .table
-                .update(cx, |table, cx| table.set_selected_row(ix, cx)),
+            Some(ix) => self.table.update(cx, |table, cx| {
+                table.set_selected_row(ix, cx);
+                // A refresh moved the process, not the user, so keep the view
+                // where it is: `set_selected_row` scrolls an off-screen row
+                // into view, which snaps a table the user scrolled away from.
+                table
+                    .vertical_scroll_handle
+                    .0
+                    .borrow_mut()
+                    .deferred_scroll_to_item = None;
+            }),
             None => {
                 self.selected = None;
                 self.table.update(cx, |table, cx| table.clear_selection(cx));
@@ -552,6 +560,10 @@ impl Render for ProcessesView {
                         ),
                 )
             })
-            .child(DataTable::new(&self.table).stripe(true))
+            .child(
+                DataTable::new(&self.table)
+                    .stripe(true)
+                    .accessibility_label("Processes"),
+            )
     }
 }

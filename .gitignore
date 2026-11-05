@@ -7,3 +7,6 @@ CONTRIBUTIONS.md
 
 # Accessibility Insights exports embed a screenshot of live data
 bench/a11y-manual/
+
+# Drafts of upstream issues, PRs and comments (posted text lives upstream)
+drafts/
