@@ -68,6 +68,7 @@ Walks the UI Automation tree under the app's window, the same tree Narrator, NVD
 | egui 0.36 lab (synthetic, accesskit) | 136 | 98 | 26 |
 | gpui-kit 0.8.1 lab (synthetic) | 153 | 89 | 2 |
 | gpui-kit 0.9.0 lab (synthetic) | 153 | 88 | 2 |
+| gpui-kit 0.9.1 lab (synthetic) | 153 | 109 | 2 |
 
 With accesskit, screen readers can finally see the window's contents, but the structure is weak (see `a11y-trees/egui-0.36-lab-synthetic-accesskit.txt`):
 
@@ -85,7 +86,7 @@ gpui-kit 0.8.1 exposes the process table as a real data grid (see `a11y-trees/gp
 
 That structure arrived upstream in longbridge/gpui-kit#3667. The unnamed elements are blank cells, which are blank on screen too. The weak spots:
 - Almost nothing is keyboard-focusable (2 elements). On 0.8.1 those were the filter box and the disabled End task button, and the table couldn't take focus. On 0.9.0 they are the filter box and the data grid (longbridge/gpui-kit#3727), and focus follows the selected row (#3758). Disabled buttons are no longer Tab stops. The counts hide this, so compare `a11y-trees/gpui-kit-0.8.1-lab-synthetic.txt` with `gpui-kit-0.9.0-lab-synthetic.txt`. The 0.9.0 lab also names its grid ("Processes").
-- Rows have no name, so a screen reader moving through them hears only "data item" until longbridge/gpui-kit#3773 lands. Patched onto it, the lab's rows read "Visual Studio Code, 9 processes, 2.7%, 1.76 GB, 0.8%".
+- Up to 0.9.0, rows had no name, so a screen reader moving through them heard only "data item". On 0.9.1 each row is named after its cells (longbridge/gpui-kit#3773): "Visual Studio Code, 9 processes, 2.7%, 1.76 GB, 0.8%". That's the 88 → 109 named elements.
 - On the other pages, gpui-kit's `Label` and plain text aren't exposed at all. See `frontends/gpui-kit/README.md`.
 
 The installed lite exposes nothing below its window, because eframe is built without accesskit. To a screen reader, the window is a titled empty box.

@@ -14,6 +14,8 @@ use tmp_model::derived::{self, MemoryComposition};
 use tmp_model::fmt::{self, gb, ghz, kb};
 use tmp_model::{CoreCpu, History, Series, Snapshot, palette};
 
+use crate::text::text;
+
 fn color(rgb: palette::Rgb) -> Hsla {
     gpui_kit::rgb(rgb.hex()).into()
 }
@@ -36,10 +38,10 @@ pub fn page(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> imp
 // Cards
 // -----------------------------------------------------------------------------
 
-fn cpu_card(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> Div {
+fn cpu_card(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> Stateful<Div> {
     let c = color(palette::CPU);
     let l1 = s.l1d_cache_kb + s.l1i_cache_kb;
-    card(cx)
+    card("cpu", cx)
         .child(head(
             "CPU",
             format!("{:.1}%", s.cpu_usage_percent),
@@ -74,7 +76,7 @@ fn cpu_card(s: &Snapshot, hist: &History, per_core: &[CoreCpu], cx: &App) -> Div
         })
 }
 
-fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
+fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Stateful<Div> {
     let c = color(palette::MEMORY);
     let m = MemoryComposition::from_snapshot(s);
     let free_color = track(cx);
@@ -90,7 +92,7 @@ fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         gb(s.total_ram_bytes),
         s.mem_percent()
     );
-    card(cx)
+    card("memory", cx)
         .child(head("Memory", value, c, "", cx))
         .child(sparkline("spark-mem", &hist.mem, c, true, cx))
         .child(stacked_bar(&segments, m.total.max(1.0), cx))
@@ -133,9 +135,9 @@ fn memory_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         )
 }
 
-fn gpu_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
+fn gpu_card(s: &Snapshot, hist: &History, cx: &App) -> Stateful<Div> {
     let c = color(palette::GPU);
-    card(cx)
+    card("gpu", cx)
         .child(head(
             "GPU",
             format!("{:.1}%", s.gpu_usage_percent),
@@ -194,9 +196,9 @@ fn gpu_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         )
 }
 
-fn disk_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
+fn disk_card(s: &Snapshot, hist: &History, cx: &App) -> Stateful<Div> {
     let c = color(palette::DISK);
-    card(cx)
+    card("disk", cx)
         .child(head(
             "Disk",
             fmt::rate(s.disk_read_per_sec + s.disk_write_per_sec),
@@ -218,9 +220,9 @@ fn disk_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         )
 }
 
-fn network_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
+fn network_card(s: &Snapshot, hist: &History, cx: &App) -> Stateful<Div> {
     let c = color(palette::NETWORK);
-    card(cx)
+    card("network", cx)
         .child(head(
             "Network",
             fmt::rate(s.net_send_per_sec + s.net_recv_per_sec),
@@ -239,9 +241,9 @@ fn network_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
         )
 }
 
-fn npu_card(s: &Snapshot, hist: &History, cx: &App) -> Div {
+fn npu_card(s: &Snapshot, hist: &History, cx: &App) -> Stateful<Div> {
     let c = color(palette::NPU);
-    card(cx)
+    card("npu", cx)
         .child(head(
             "NPU",
             format!("{:.1}%", s.npu_usage_percent),
@@ -288,8 +290,10 @@ fn track(cx: &App) -> Hsla {
     cx.theme().muted_foreground.opacity(0.25)
 }
 
-fn card(cx: &App) -> Div {
+/// A card. Its id keeps one card's labels apart from another's.
+fn card(id: &'static str, cx: &App) -> Stateful<Div> {
     v_flex()
+        .id(id)
         .w_full()
         .flex_shrink_0()
         .gap_2()
@@ -306,22 +310,20 @@ fn head(title: &str, value: String, value_color: Hsla, subtitle: &str, cx: &App)
     h_flex()
         .w_full()
         .gap_3()
-        .child(div().font_semibold().child(title.to_string()))
+        .child(text(title.to_string()).font_semibold())
         .child(div().flex_1())
         .when(!subtitle.is_empty(), |this| {
             this.child(
-                div()
+                text(subtitle.to_string())
                     .text_xs()
                     .text_color(cx.theme().muted_foreground)
-                    .truncate()
-                    .child(subtitle.to_string()),
+                    .truncate(),
             )
         })
         .child(
-            div()
+            text(value)
                 .font_family(cx.theme().mono_font_family.clone())
-                .text_color(value_color)
-                .child(value),
+                .text_color(value_color),
         )
 }
 
@@ -362,20 +364,14 @@ fn details() -> Div {
     h_flex().flex_wrap().gap_x_4().gap_y_1()
 }
 
-fn kv(key: &str, value: String, cx: &App) -> Div {
+/// One detail. Keys are unique within a card, so the key is the row's id.
+fn kv(key: &str, value: String, cx: &App) -> Stateful<Div> {
     h_flex()
+        .id(SharedString::from(key.to_string()))
         .gap_1()
         .text_xs()
-        .child(
-            div()
-                .text_color(cx.theme().muted_foreground)
-                .child(key.to_string()),
-        )
-        .child(
-            div()
-                .font_family(cx.theme().mono_font_family.clone())
-                .child(value),
-        )
+        .child(text(key.to_string()).text_color(cx.theme().muted_foreground))
+        .child(text(value).font_family(cx.theme().mono_font_family.clone()))
 }
 
 /// One horizontal bar of proportional segments.

@@ -14,6 +14,7 @@ mod battery;
 mod perf;
 mod processes;
 mod settings;
+mod text;
 
 use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::*;

@@ -18,6 +18,8 @@ use gpui_kit::*;
 use tmp_model::groups::{self, Row, Selection, Sort, SortKey};
 use tmp_model::{Proc, derived, fmt, palette};
 
+use crate::text::text;
+
 /// One table row, owned: `groups::Group` borrows the process list, but the
 /// table keeps its rows between frames.
 struct DisplayRow {
@@ -525,9 +527,8 @@ impl Render for ProcessesView {
                     .child(Input::new(&self.filter).w(px(220.)).cleanable(true))
                     .child(div().flex_1())
                     .child(
-                        div()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(format!("{group_count} apps · {} processes", self.total)),
+                        text(format!("{group_count} apps · {} processes", self.total))
+                            .text_color(cx.theme().muted_foreground),
                     )
                     .child(
                         Button::new("end-task")

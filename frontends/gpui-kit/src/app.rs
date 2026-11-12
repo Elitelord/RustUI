@@ -20,6 +20,7 @@ use tmp_model::{
 
 use crate::processes::ProcessesView;
 use crate::settings::SettingsView;
+use crate::text::text;
 use crate::{battery, perf};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -153,22 +154,21 @@ impl LiteApp {
 
     /// The live stats strip above the pages.
     fn header(&self, cx: &App) -> impl IntoElement {
+        // All five stats are built by these lines, so the label is the stat's id.
         let stat = |label: &str, value: String, value_color: Hsla| {
             h_flex()
+                .id(SharedString::from(label.to_string()))
                 .gap_2()
                 .font_family(cx.theme().mono_font_family.clone())
                 .text_sm()
-                .child(
-                    div()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(label.to_string()),
-                )
-                .child(div().text_color(value_color).child(value))
+                .child(text(label.to_string()).text_color(cx.theme().muted_foreground))
+                .child(text(value).text_color(value_color))
         };
         let level = |l| -> Hsla { gpui_kit::rgb(palette::level(l).hex()).into() };
         let accent = cx.theme().primary;
 
         h_flex()
+            .id("stats")
             .h(px(46.))
             .px_4()
             .gap_5()
@@ -176,7 +176,7 @@ impl LiteApp {
             .border_b_1()
             .border_color(cx.theme().border)
             .map(|this| match &self.snap {
-                None => this.child(div().text_color(cx.theme().muted_foreground).child("—")),
+                None => this.child(text("—").text_color(cx.theme().muted_foreground)),
                 Some(s) => {
                     let mem = s.mem_percent();
                     this.child(stat(
@@ -210,7 +210,7 @@ impl Render for LiteApp {
                 .justify_center()
                 .gap_2()
                 .text_color(cx.theme().muted_foreground)
-                .child("Reading system data…")
+                .child(text("Reading system data…").text_color(cx.theme().muted_foreground))
                 .children(self.poll_error.clone())
                 .into_any_element(),
             (Some(_), Page::Processes) => self.processes.clone().into_any_element(),
