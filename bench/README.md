@@ -69,6 +69,7 @@ Walks the UI Automation tree under the app's window, the same tree Narrator, NVD
 | gpui-kit 0.8.1 lab (synthetic) | 153 | 89 | 2 |
 | gpui-kit 0.9.0 lab (synthetic) | 153 | 88 | 2 |
 | gpui-kit 0.9.1 lab (synthetic) | 153 | 109 | 2 |
+| gpui-kit 0.10.0 lab (synthetic) | 164 | 119 | 2 |
 
 With accesskit, screen readers can finally see the window's contents, but the structure is weak (see `a11y-trees/egui-0.36-lab-synthetic-accesskit.txt`):
 
@@ -87,7 +88,7 @@ gpui-kit 0.8.1 exposes the process table as a real data grid (see `a11y-trees/gp
 That structure arrived upstream in longbridge/gpui-kit#3667. The unnamed elements are blank cells, which are blank on screen too. The weak spots:
 - Almost nothing is keyboard-focusable (2 elements). On 0.8.1 those were the filter box and the disabled End task button, and the table couldn't take focus. On 0.9.0 they are the filter box and the data grid (longbridge/gpui-kit#3727), and focus follows the selected row (#3758). Disabled buttons are no longer Tab stops. The counts hide this, so compare `a11y-trees/gpui-kit-0.8.1-lab-synthetic.txt` with `gpui-kit-0.9.0-lab-synthetic.txt`. The 0.9.0 lab also names its grid ("Processes").
 - Up to 0.9.0, rows had no name, so a screen reader moving through them heard only "data item". On 0.9.1 each row is named after its cells (longbridge/gpui-kit#3773): "Visual Studio Code, 9 processes, 2.7%, 1.76 GB, 0.8%". That's the 88 → 109 named elements.
-- On the other pages, gpui-kit's `Label` and plain text aren't exposed at all. See `frontends/gpui-kit/README.md`.
+- Up to 0.9.1, gpui-kit's `Label` and plain text weren't exposed, so the Performance and Battery pages showed only their sidebar items. On 0.10.0 `Label` carries a text node (longbridge/gpui-kit#3937, from this lab's audit), and the lab draws its text through `Label`, so those pages now expose their cards (Performance 2 → 89 named, Battery 4 → 39) and the Processes header strip adds 11 Text nodes (109 → 119). See `frontends/gpui-kit/README.md`; note the measurement caveat there for the static pages.
 
 The installed lite exposes nothing below its window, because eframe is built without accesskit. To a screen reader, the window is a titled empty box.
 
